@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Strata Email Agent</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 13px;
+      background: #F0F4F8;
+      color: #111827;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #1E3A5F 0%, #2563EB 100%);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .header-icon { font-size: 18px; }
+    .header-title { color: #fff; font-weight: 700; font-size: 14px; }
+    .header-sub { color: rgba(255,255,255,0.7); font-size: 11px; }
+    .settings-btn {
+      margin-left: auto;
+      background: rgba(255,255,255,0.15);
+      border: none;
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .main { padding: 12px; }
+
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+    }
+
+    .card-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #9CA3AF;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+    }
+
+    /* API Key section */
+    #settings-panel { display: none; }
+    #settings-panel.open { display: block; }
+    .api-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: monospace;
+      outline: none;
+      margin-top: 6px;
+    }
+    .api-input:focus { border-color: #2563EB; }
+    .save-btn {
+      margin-top: 8px;
+      background: #2563EB;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+    }
+    .api-status { font-size: 11px; color: #059669; margin-top: 6px; display: none; }
+
+    /* Email preview */
+    .email-preview {
+      background: #F9FAFB;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #374151;
+      max-height: 100px;
+      overflow: hidden;
+      position: relative;
+      border: 1px solid #F3F4F6;
+    }
+    .email-meta { font-weight: 600; color: #1E3A5F; margin-bottom: 4px; }
+    .email-fade {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 30px;
+      background: linear-gradient(transparent, #F9FAFB);
+    }
+
+    /* Buttons */
+    .btn-row { display: flex; gap: 8px; margin-top: 10px; }
+    .btn {
+      flex: 1;
+      border: none;
+      border-radius: 6px;
+      padding: 9px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #2563EB; color: #fff; }
+    .btn-dark { background: #1E3A5F; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #1D4ED8; }
+    .btn-dark:hover:not(:disabled) { background: #172B45; }
+
+    /* Loading */
+    .loading { text-align: center; padding: 20px; color: #6B7280; font-size: 12px; }
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid #E5E7EB;
+      border-top-color: #2563EB;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Error */
+    .error-box {
+      background: #FEE2E2; color: #991B1B;
+      border-radius: 6px; padding: 10px 12px;
+      font-size: 12px; margin-bottom: 10px;
+    }
+
+    /* Triage result */
+    .badge-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .badge {
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .badge-urgent { background: #FEE2E2; color: #991B1B; border: 1px solid #FCA5A5; }
+    .badge-week { background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; }
+    .badge-routine { background: #DCFCE7; color: #166534; border: 1px solid #86EFAC; }
+    .badge-cat { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
+    .badge-sender { background: #F3F4F6; color: #374151; border: 1px solid #E5E7EB; }
+    .badge-reply { background: #FEF9C3; color: #713F12; border: 1px solid #FDE047; }
+
+    .info-block {
+      background: #F9FAFB;
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 8px;
+      border: 1px solid #F3F4F6;
+    }
+    .info-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #9CA3AF;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+    .info-value { font-size: 12px; color: #111827; line-height: 1.55; }
+
+    .facts-list { margin: 0; padding-left: 16px; }
+    .facts-list li { font-size: 12px; color: #374151; margin-bottom: 3px; line-height: 1.5; }
+
+    .meta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+    .meta-item { font-size: 12px; color: #374151; }
+    .meta-item span { color: #9CA3AF; font-weight: 600; }
+
+    /* Draft */
+    .draft-area {
+      width: 100%;
+      min-height: 180px;
+      padding: 10px;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1.65;
+      color: #111827;
+      resize: vertical;
+      outline: none;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #FAFAFA;
+    }
+    .draft-area:focus { border-color: #2563EB; }
+
+    .copy-btn {
+      width: 100%;
+      margin-top: 8px;
+      background: #F3F4F6;
+      color: #374151;
+      border: 1px solid #E5E7EB;
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .copy-btn.copied { background: #DCFCE7; color: #166534; border-color: #86EFAC; }
+    .draft-note { font-size: 11px; color: #9CA3AF; margin-top: 6px; line-height: 1.5; }
+
+    /* No API key warning */
+    .no-key-warning {
+      background: #FEF3C7;
+      border: 1px solid #FCD34D;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 12px;
+      color: #92400E;
+      margin-bottom: 10px;
+    }
+    .no-key-warning a { color: #1D4ED8; cursor: pointer; text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-icon">📬</div>
+  <div>
+    <div class="header-title">Strata Email Agent</div>
+    <div class="header-sub">MBCM Strata Specialists</div>
+  </div>
+  <button class="settings-btn" onclick="toggleSettings()">⚙ API Key</button>
+</div>
+
+<div class="main">
+
+  <!-- Settings panel -->
+  <div class="card" id="settings-panel">
+    <div class="card-label">Anthropic API Key</div>
+    <div style="font-size:12px;color:#374151;line-height:1.5;">
+      Get your key from <a href="https://console.anthropic.com/keys" target="_blank" style="color:#2563EB;">console.anthropic.com</a>.
+      It is saved locally in your browser only.
+    </div>
+    <input type="password" class="api-input" id="api-key-input" placeholder="sk-ant-..." />
+    <button class="save-btn" onclick="saveApiKey()">Save Key</button>
+    <div class="api-status" id="api-status">Key saved.</div>
+  </div>
+
+  <!-- No key warning -->
+  <div class="no-key-warning" id="no-key-warning" style="display:none;">
+    Add your Anthropic API key to use this agent.
+    <a onclick="toggleSettings()">Open settings</a>
+  </div>
+
+  <!-- Email preview -->
+  <div class="card" id="email-card">
+    <div class="card-label">Current Email</div>
+    <div class="loading" id="email-loading">
+      <div class="spinner"></div>
+      Loading email...
+    </div>
+    <div id="email-preview-content" style="display:none;">
+      <div class="email-preview">
+        <div class="email-meta" id="email-from"></div>
+        <div class="email-meta" id="email-subject"></div>
+        <div id="email-body-preview"></div>
+        <div class="email-fade"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-triage" onclick="handleTriage()">⚡ Triage</button>
+        <button class="btn btn-dark" id="btn-draft" onclick="handleDraft()">✍ Draft Reply</button>
+      </div>
+    </div>
+    <div id="email-error" style="display:none;" class="error-box"></div>
+  </div>
+
+  <!-- Error display -->
+  <div class="error-box" id="main-error" style="display:none;"></div>
+
+  <!-- Triage result -->
+  <div class="card" id="triage-card" style="display:none;">
+    <div class="card-label">Triage Result</div>
+    <div id="triage-loading" class="loading" style="display:none;">
+      <div class="spinner"></div>
+      Analysing email...
+    </div>
+    <div id="triage-result" style="display:none;">
+      <div class="badge-row" id="badge-row"></div>
+      <div id="triage-summary"></div>
+      <div id="triage-facts"></div>
+      <div class="meta-row" id="triage-meta"></div>
+    </div>
+  </div>
+
+  <!-- Draft reply -->
+  <div class="card" id="draft-card" style="display:none;">
+    <div class="card-label">Draft Reply</div>
+    <div id="draft-loading" class="loading" style="display:none;">
+      <div class="spinner"></div>
+      Drafting reply...
+    </div>
+    <div id="draft-result" style="display:none;">
+      <textarea class="draft-area" id="draft-text"></textarea>
+      <button class="copy-btn" id="copy-btn" onclick="copyDraft()">Copy to Clipboard</button>
+      <div class="draft-note">Edit above, then paste into Outlook. Replace any [PLACEHOLDER] before sending.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ─── State ───────────────────────────────────────────────────────────────
+  let emailFrom = "";
+  let emailSubject = "";
+  let emailBody = "";
+  let triageData = null;
+
+  const TRIAGE_SYSTEM = `You are an expert strata management assistant for MBCM Strata Specialists, based in Melbourne, Victoria, Australia. The manager is Aruna, managing owners corporations under the Owners Corporations Act 2006 (Vic).
+
+Return ONLY a JSON object — no preamble, no markdown, no explanation.
+
+{
+  "category": one of ["Maintenance","Levy / Finance","Complaint","Insurance","Meeting / AGM","Legal / Compliance","Dispute","Contractor","Enquiry","Other"],
+  "urgency": one of ["Urgent","This Week","Routine"],
+  "urgency_reason": "one sentence",
+  "sender_type": one of ["Owner","Tenant","Contractor","Council / Authority","Internal","Unknown"],
+  "property_hint": "lot or address if mentioned, else null",
+  "summary": "2-3 sentence plain English summary",
+  "key_facts": ["up to 5 short facts"],
+  "suggested_action": "1-2 sentences on what to do next",
+  "assign_to": one of ["Aruna","Team","Contractor","Owner to Action"],
+  "reply_needed": true or false
+}`;
+
+  const REPLY_SYSTEM = `You are drafting a professional email reply for Aruna, Manager at MBCM Strata Specialists, Melbourne, Victoria. MBCM manages owners corporations under the Owners Corporations Act 2006 (Vic).
+
+RULES — follow every one:
+- Short sentences. Active voice. Use "you" and "your". Use "we" for MBCM actions.
+- Include specific numbers, dates, or reference numbers where known.
+- Neutral, respectful, professional tone. Never condescending.
+- No em dashes. No filler. No metaphors or clichés. No "please do not hesitate".
+- No marketing jargon. No extra adjectives.
+- Structure: 1-2 sentence intro. Issue summary. Action taken or planned. What recipient needs to do. Direct close.
+- Use headings or numbered steps only when multiple actions are involved.
+- Sign off: Kind regards, Aruna | MBCM Strata Specialists
+- Insert [PLACEHOLDER] where specific details are missing.`;
+
+  // ─── Office.js Init ──────────────────────────────────────────────────────
+  Office.initialize = function() {
+    checkApiKey();
+    loadEmail();
+  };
+
+  function loadEmail() {
+    const item = Office.context.mailbox.item;
+    if (!item) {
+      showEmailError("No email selected. Click on an email first.");
+      return;
+    }
+    emailSubject = item.subject || "(No subject)";
+    emailFrom = item.from ? (item.from.displayName + " <" + item.from.emailAddress + ">") : "Unknown sender";
+    item.body.getAsync(Office.CoercionType.Text, function(result) {
+      if (result.status === Office.AsyncResultStatus.Succeeded) {
+        emailBody = result.value || "";
+        showEmailPreview();
+      } else {
+        showEmailError("Could not read email body: " + result.error.message);
+      }
+    });
+  }
+
+  function showEmailPreview() {
+    document.getElementById("email-loading").style.display = "none";
+    document.getElementById("email-preview-content").style.display = "block";
+    document.getElementById("email-from").textContent = "From: " + emailFrom;
+    document.getElementById("email-subject").textContent = "Subject: " + emailSubject;
+    document.getElementById("email-body-preview").textContent = emailBody.substring(0, 200) + "...";
+  }
+
+  function showEmailError(msg) {
+    document.getElementById("email-loading").style.display = "none";
+    const el = document.getElementById("email-error");
+    el.style.display = "block";
+    el.textContent = msg;
+  }
+
+  // ─── API Key ─────────────────────────────────────────────────────────────
+  function checkApiKey() {
+    const key = localStorage.getItem("strata_agent_api_key");
+    if (!key) {
+      document.getElementById("no-key-warning").style.display = "block";
+    }
+  }
+
+  function toggleSettings() {
+    const panel = document.getElementById("settings-panel");
+    panel.classList.toggle("open");
+    if (panel.classList.contains("open")) {
+      const key = localStorage.getItem("strata_agent_api_key") || "";
+      document.getElementById("api-key-input").value = key;
+    }
+  }
+
+  function saveApiKey() {
+    const key = document.getElementById("api-key-input").value.trim();
+    if (key) {
+      localStorage.setItem("strata_agent_api_key", key);
+      document.getElementById("api-status").style.display = "block";
+      document.getElementById("no-key-warning").style.display = "none";
+      setTimeout(() => {
+        document.getElementById("settings-panel").classList.remove("open");
+        document.getElementById("api-status").style.display = "none";
+      }, 1500);
+    }
+  }
+
+  function getApiKey() {
+    return localStorage.getItem("strata_agent_api_key") || "";
+  }
+
+  // ─── API Call ─────────────────────────────────────────────────────────────
+  async function callClaude(systemPrompt, userContent) {
+    const key = getApiKey();
+    if (!key) throw new Error("No API key set. Open ⚙ API Key settings.");
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userContent }],
+      }),
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    return data.content.map(b => b.text || "").join("");
+  }
+
+  // ─── Triage ───────────────────────────────────────────────────────────────
+  async function handleTriage() {
+    document.getElementById("main-error").style.display = "none";
+    document.getElementById("triage-card").style.display = "block";
+    document.getElementById("triage-loading").style.display = "block";
+    document.getElementById("triage-result").style.display = "none";
+    document.getElementById("btn-triage").disabled = true;
+
+    const emailContent = `From: ${emailFrom}\nSubject: ${emailSubject}\n\n${emailBody}`;
+
+    try {
+      const raw = await callClaude(TRIAGE_SYSTEM, "Triage this email:\n\n" + emailContent);
+      const clean = raw.replace(/```json|```/g, "").trim();
+      triageData = JSON.parse(clean);
+      renderTriage(triageData);
+    } catch (e) {
+      showMainError("Triage failed: " + e.message);
+      document.getElementById("triage-card").style.display = "none";
+    }
+
+    document.getElementById("triage-loading").style.display = "none";
+    document.getElementById("btn-triage").disabled = false;
+  }
+
+  function renderTriage(t) {
+    document.getElementById("triage-result").style.display = "block";
+
+    // Badges
+    const urgClass = t.urgency === "Urgent" ? "badge-urgent" : t.urgency === "This Week" ? "badge-week" : "badge-routine";
+    let badges = `<span class="badge ${urgClass}">${t.urgency.toUpperCase()}</span>`;
+    badges += `<span class="badge badge-cat">${t.category}</span>`;
+    badges += `<span class="badge badge-sender">${t.sender_type}</span>`;
+    if (t.reply_needed) badges += `<span class="badge badge-reply">Reply needed</span>`;
+    document.getElementById("badge-row").innerHTML = badges;
+
+    // Summary + action
+    let html = "";
+    html += `<div class="info-block"><div class="info-label">Summary</div><div class="info-value">${t.summary}</div></div>`;
+    html += `<div class="info-block"><div class="info-label">Suggested Action</div><div class="info-value">${t.suggested_action}</div></div>`;
+    document.getElementById("triage-summary").innerHTML = html;
+
+    // Key facts
+    if (t.key_facts && t.key_facts.length > 0) {
+      let facts = `<div class="info-block"><div class="info-label">Key Facts</div><ul class="facts-list">`;
+      t.key_facts.forEach(f => { facts += `<li>${f}</li>`; });
+      facts += `</ul></div>`;
+      document.getElementById("triage-facts").innerHTML = facts;
+    }
+
+    // Meta
+    let meta = "";
+    if (t.assign_to) meta += `<div class="meta-item"><span>Assign to: </span>${t.assign_to}</div>`;
+    if (t.property_hint) meta += `<div class="meta-item"><span>Property: </span>${t.property_hint}</div>`;
+    if (t.urgency_reason) meta += `<div class="meta-item"><span>Urgency: </span>${t.urgency_reason}</div>`;
+    document.getElementById("triage-meta").innerHTML = meta;
+  }
+
+  // ─── Draft ────────────────────────────────────────────────────────────────
+  async function handleDraft() {
+    document.getElementById("main-error").style.display = "none";
+    document.getElementById("draft-card").style.display = "block";
+    document.getElementById("draft-loading").style.display = "block";
+    document.getElementById("draft-result").style.display = "none";
+    document.getElementById("btn-draft").disabled = true;
+
+    const emailContent = `From: ${emailFrom}\nSubject: ${emailSubject}\n\n${emailBody}`;
+    const context = triageData
+      ? `Triage context:\n- Category: ${triageData.category}\n- Urgency: ${triageData.urgency}\n- Summary: ${triageData.summary}\n- Suggested action: ${triageData.suggested_action}\n\n`
+      : "";
+
+    try {
+      const result = await callClaude(REPLY_SYSTEM, context + "Email to reply to:\n\n" + emailContent);
+      document.getElementById("draft-text").value = result;
+      document.getElementById("draft-result").style.display = "block";
+    } catch (e) {
+      showMainError("Draft failed: " + e.message);
+      document.getElementById("draft-card").style.display = "none";
+    }
+
+    document.getElementById("draft-loading").style.display = "none";
+    document.getElementById("btn-draft").disabled = false;
+  }
+
+  // ─── Copy ─────────────────────────────────────────────────────────────────
+  function copyDraft() {
+    const text = document.getElementById("draft-text").value;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById("copy-btn");
+      btn.textContent = "✓ Copied";
+      btn.classList.add("copied");
+      setTimeout(() => {
+        btn.textContent = "Copy to Clipboard";
+        btn.classList.remove("copied");
+      }, 2000);
+    });
+  }
+
+  function showMainError(msg) {
+    const el = document.getElementById("main-error");
+    el.style.display = "block";
+    el.textContent = msg;
+  }
+</script>
+</body>
+</html>

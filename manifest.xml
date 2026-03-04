@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<OfficeApp
+  xmlns="http://schemas.microsoft.com/office/appframework/manifest/v1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/v1.0"
+  xsi:type="MailApp">
+
+  <Id>5f8a9b2c-d3e4-4f5a-b6c7-d8e9f0a1b2c3</Id>
+  <Version>1.0.0.2</Version>
+  <ProviderName>MBCM Strata Specialists</ProviderName>
+  <DefaultLocale>en-AU</DefaultLocale>
+  <DisplayName DefaultValue="Strata Email Agent"/>
+  <Description DefaultValue="Triage strata emails and draft replies using AI."/>
+
+  <IconUrl DefaultValue="https://arajakaruna-rgb.github.io/strata-email-agent/icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue="https://arajakaruna-rgb.github.io/strata-email-agent/icon-32.png"/>
+
+  <SupportUrl DefaultValue="https://mbcm.com.au"/>
+
+  <AppDomains>
+    <AppDomain>https://api.anthropic.com</AppDomain>
+  </AppDomains>
+
+  <Hosts>
+    <Host Name="Mailbox"/>
+  </Hosts>
+
+  <Requirements>
+    <Sets>
+      <Set Name="Mailbox" MinVersion="1.1"/>
+    </Sets>
+  </Requirements>
+
+  <FormSettings>
+    <Form xsi:type="ItemRead">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://arajakaruna-rgb.github.io/strata-email-agent/taskpane.html"/>
+        <RequestedHeight>450</RequestedHeight>
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+
+  <Permissions>ReadItem</Permissions>
+
+  <Rule xsi:type="RuleCollection" Mode="Or">
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read"/>
+  </Rule>
+
+  <DisableEntityHighlighting>false</DisableEntityHighlighting>
+
+</OfficeApp>
